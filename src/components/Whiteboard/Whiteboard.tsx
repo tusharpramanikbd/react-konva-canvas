@@ -1,7 +1,7 @@
 /** @format */
 
 import { useRef, useState } from "react";
-import { Stage, Layer, Line, Circle, Rect } from "react-konva";
+import { Stage, Layer, Line, Circle, Rect, Group } from "react-konva";
 import "./Whiteboard.css";
 import { KonvaEventObject } from "konva/lib/Node";
 
@@ -19,6 +19,10 @@ interface ShapeProps {
   width: number;
   height: number;
 }
+
+const isActive = (tool: Tool, selectedTool: Tool): string => {
+  return tool === selectedTool ? "active" : "";
+};
 
 const Whiteboard: React.FC = () => {
   const [tool, setTool] = useState<Tool>("pen");
@@ -39,10 +43,6 @@ const Whiteboard: React.FC = () => {
   // Stage dimensions
   const stageWidth = window.innerWidth - 300;
   const stageHeight = window.innerHeight - 300;
-
-  const isActive = (toolName: Tool): string => {
-    return tool === toolName ? "active" : "";
-  };
 
   const handleMouseDown = (e: KonvaEventObject<MouseEvent>) => {
     isDrawing.current = true;
@@ -117,23 +117,26 @@ const Whiteboard: React.FC = () => {
   return (
     <div className="whiteboard-container">
       <div className="toolbar">
-        <button className={isActive("pen")} onClick={() => setTool("pen")}>
+        <button
+          className={isActive(tool, "pen")}
+          onClick={() => setTool("pen")}
+        >
           Pen
         </button>
         <button
-          className={isActive("eraser")}
+          className={isActive(tool, "eraser")}
           onClick={() => setTool("eraser")}
         >
           Eraser
         </button>
         <button
-          className={isActive("rectangle")}
+          className={isActive(tool, "rectangle")}
           onClick={() => setTool("rectangle")}
         >
           Rectangle
         </button>
         <button
-          className={isActive("circle")}
+          className={isActive(tool, "circle")}
           onClick={() => setTool("circle")}
         >
           Circle
@@ -151,20 +154,100 @@ const Whiteboard: React.FC = () => {
         onMouseLeave={handleMouseUp}
       >
         <Layer>
-          {lines.map((line, i) => (
-            <Line
-              key={i}
-              points={line.points}
-              stroke={line.tool === "eraser" ? "white" : "black"}
-              strokeWidth={line.tool === "eraser" ? 20 : 5}
-              tension={0.5}
-              lineCap="round"
-              lineJoin="round"
-              globalCompositeOperation={
-                line.tool === "eraser" ? "destination-out" : "source-over"
+          {/* Draw all shapes first */}
+          <Group>
+            {shapes.map((shape, i) => {
+              if (shape.type === "rectangle") {
+                return (
+                  <Rect
+                    key={`shape-${i}`}
+                    x={shape.x}
+                    y={shape.y}
+                    width={shape.width}
+                    height={shape.height}
+                    stroke="black"
+                    strokeWidth={2}
+                    fillEnabled={false}
+                  />
+                );
+              } else {
+                return (
+                  <Circle
+                    key={`shape-${i}`}
+                    x={shape.x + shape.width / 2}
+                    y={shape.y + shape.height / 2}
+                    radius={
+                      Math.max(Math.abs(shape.width), Math.abs(shape.height)) /
+                      2
+                    }
+                    stroke="black"
+                    strokeWidth={2}
+                    fillEnabled={false}
+                  />
+                );
               }
-            />
-          ))}
+            })}
+
+            {currentShape &&
+              (currentShape.type === "rectangle" ? (
+                <Rect
+                  x={currentShape.x}
+                  y={currentShape.y}
+                  width={currentShape.width}
+                  height={currentShape.height}
+                  stroke="black"
+                  strokeWidth={2}
+                  fillEnabled={false}
+                />
+              ) : (
+                <Circle
+                  x={currentShape.x + currentShape.width / 2}
+                  y={currentShape.y + currentShape.height / 2}
+                  radius={
+                    Math.max(
+                      Math.abs(currentShape.width),
+                      Math.abs(currentShape.height),
+                    ) / 2
+                  }
+                  stroke="black"
+                  strokeWidth={2}
+                  fillEnabled={false}
+                />
+              ))}
+          </Group>
+
+          {/* Draw all non-eraser lines */}
+          {lines
+            .filter((line) => line.tool !== "eraser")
+            .map((line, i) => (
+              <Line
+                key={`line-${i}`}
+                points={line.points}
+                stroke="black"
+                strokeWidth={5}
+                tension={0.5}
+                lineCap="round"
+                lineJoin="round"
+              />
+            ))}
+
+          {/* Then draw eraser lines to affect both shapes and pen lines */}
+          {lines
+            .filter((line) => line.tool === "eraser")
+            .map((line, i) => (
+              <Line
+                key={`eraser-${i}`}
+                points={line.points}
+                stroke="white"
+                strokeWidth={20}
+                tension={0.5}
+                lineCap="round"
+                lineJoin="round"
+                globalCompositeOperation="destination-out"
+              />
+            ))}
+
+          {/* Draw current line being drawn */}
           {currentLine && (
             <Line
               points={currentLine.points}
@@ -180,64 +263,6 @@ const Whiteboard: React.FC = () => {
               }
             />
           )}
-
-          {shapes.map((shape, i) => {
-            if (shape.type === "rectangle") {
-              return (
-                <Rect
-                  key={`shape-${i}`}
-                  x={shape.x}
-                  y={shape.y}
-                  width={shape.width}
-                  height={shape.height}
-                  stroke="black"
-                  strokeWidth={2}
-                  fillEnabled={false}
-                />
-              );
-            } else {
-              return (
-                <Circle
-                  key={`shape-${i}`}
-                  x={shape.x + shape.width / 2}
-                  y={shape.y + shape.height / 2}
-                  radius={
-                    Math.max(Math.abs(shape.width), Math.abs(shape.height)) / 2
-                  }
-                  stroke="black"
-                  strokeWidth={2}
-                  fillEnabled={false}
-                />
-              );
-            }
-          })}
-
-          {currentShape &&
-            (currentShape.type === "rectangle" ? (
-              <Rect
-                x={currentShape.x}
-                y={currentShape.y}
-                width={currentShape.width}
-                height={currentShape.height}
-                stroke="black"
-                strokeWidth={2}
-                fillEnabled={false}
-              />
-            ) : (
-              <Circle
-                x={currentShape.x + currentShape.width / 2}
-                y={currentShape.y + currentShape.height / 2}
-                radius={
-                  Math.max(
-                    Math.abs(currentShape.width),
-                    Math.abs(currentShape.height),
-                  ) / 2
-                }
-                stroke="black"
-                strokeWidth={2}
-                fillEnabled={false}
-              />
-            ))}
         </Layer>
       </Stage>
     </div>
