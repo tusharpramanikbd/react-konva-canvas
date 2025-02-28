@@ -109,6 +109,11 @@ const Whiteboard: React.FC = () => {
     }
   };
 
+  const handleClear = () => {
+    setLines([]);
+    setShapes([]);
+  };
+
   return (
     <div className="whiteboard-container">
       <div className="toolbar">
@@ -133,6 +138,7 @@ const Whiteboard: React.FC = () => {
         >
           Circle
         </button>
+        <button onClick={handleClear}>Clear All</button>
       </div>
 
       <Stage
