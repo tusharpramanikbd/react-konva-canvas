@@ -82,23 +82,30 @@ const Whiteboard: React.FC = () => {
     }
 
     isDrawing.current = true;
-    const pos = e.target.getStage()?.getPointerPosition();
+    const stage = e.target.getStage();
+    const pointerPos = stage?.getPointerPosition();
 
-    if (!pos) return;
+    if (!pointerPos || !stage) return;
+
+    // Convert screen coordinates to canvas coordinates
+    const transformedPos = {
+      x: (pointerPos.x - position.x) / scale,
+      y: (pointerPos.y - position.y) / scale,
+    };
 
     if (tool === "pen" || tool === "eraser") {
       // Start a new line
       setCurrentLine({
         tool,
-        points: [pos.x, pos.y],
+        points: [transformedPos.x, transformedPos.y],
       });
     } else if (tool === "rectangle" || tool === "circle") {
       // Start a new shape
-      setShapeStart({ x: pos.x, y: pos.y });
+      setShapeStart(transformedPos);
       setCurrentShape({
         type: tool === "rectangle" ? "rectangle" : "circle",
-        x: pos.x,
-        y: pos.y,
+        x: transformedPos.x,
+        y: transformedPos.y,
         width: 0,
         height: 0,
       });
@@ -108,15 +115,23 @@ const Whiteboard: React.FC = () => {
   const handleMouseMove = (e: KonvaEventObject<MouseEvent>) => {
     if (!isDrawing.current) return;
 
-    const pos = e.target.getStage()?.getPointerPosition();
-    if (!pos) return;
+    const stage = e.target.getStage();
+    const pointerPos = stage?.getPointerPosition();
+
+    if (!pointerPos || !stage) return;
+
+    // Convert screen coordinates to canvas coordinates
+    const transformedPos = {
+      x: (pointerPos.x - position.x) / scale,
+      y: (pointerPos.y - position.y) / scale,
+    };
 
     if (tool === "pen" || tool === "eraser") {
       // Continue drawing the line
       if (currentLine) {
         setCurrentLine({
           ...currentLine,
-          points: [...currentLine.points, pos.x, pos.y],
+          points: [...currentLine.points, transformedPos.x, transformedPos.y],
         });
       }
     } else if (tool === "rectangle" || tool === "circle") {
@@ -124,8 +139,8 @@ const Whiteboard: React.FC = () => {
       if (currentShape) {
         setCurrentShape({
           ...currentShape,
-          width: pos.x - shapeStart.x,
-          height: pos.y - shapeStart.y,
+          width: transformedPos.x - shapeStart.x,
+          height: transformedPos.y - shapeStart.y,
         });
       }
     }
