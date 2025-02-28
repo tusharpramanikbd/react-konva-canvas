@@ -41,4 +41,20 @@
     240,
     0.8
   ); /* Light gray that works in dark mode too */
+  overflow: hidden;
+}
+
+.zoom-controls {
+  display: flex;
+  align-items: center;
+  margin-left: 20px;
+}
+
+.zoom-controls button {
+  margin-right: 8px;
+}
+
+.zoom-info {
+  font-size: 0.9rem;
+  padding: 0 8px;
 }

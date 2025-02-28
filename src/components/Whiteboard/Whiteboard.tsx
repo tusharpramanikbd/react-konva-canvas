@@ -40,6 +40,13 @@ const Whiteboard: React.FC = () => {
     y: 0,
   });
 
+  // Zoom state
+  const [scale, setScale] = useState<number>(1);
+  const [position, setPosition] = useState<{ x: number; y: number }>({
+    x: 0,
+    y: 0,
+  });
+
   // Stage dimensions
   const stageWidth = window.innerWidth - 300;
   const stageHeight = window.innerHeight - 300;
@@ -114,6 +121,51 @@ const Whiteboard: React.FC = () => {
     setShapes([]);
   };
 
+  const handleZoomIn = () => {
+    setScale((prevScale) => Math.min(prevScale * 1.2, 5)); // Limit max zoom to 5x
+  };
+
+  const handleZoomOut = () => {
+    setScale((prevScale) => Math.max(prevScale / 1.2, 0.3)); // Limit min zoom to 0.3x
+  };
+
+  const handleResetZoom = () => {
+    setScale(1);
+    setPosition({ x: 0, y: 0 });
+  };
+
+  const handleWheel = (e: KonvaEventObject<WheelEvent>) => {
+    e.evt.preventDefault();
+
+    const scaleBy = 1.05;
+    const stage = e.target.getStage();
+    const oldScale = scale;
+
+    if (!stage) return;
+
+    const pointer = stage.getPointerPosition();
+    if (!pointer) return;
+
+    const mousePointTo = {
+      x: (pointer.x - position.x) / oldScale,
+      y: (pointer.y - position.y) / oldScale,
+    };
+
+    // Calculate new scale
+    const newScale =
+      e.evt.deltaY < 0
+        ? Math.min(oldScale * scaleBy, 5)
+        : Math.max(oldScale / scaleBy, 0.3);
+
+    // Calculate new position
+    setPosition({
+      x: pointer.x - mousePointTo.x * newScale,
+      y: pointer.y - mousePointTo.y * newScale,
+    });
+
+    setScale(newScale);
+  };
+
   return (
     <div className="whiteboard-container">
       <div className="toolbar">
@@ -142,6 +194,13 @@ const Whiteboard: React.FC = () => {
           Circle
         </button>
         <button onClick={handleClear}>Clear All</button>
+
+        <div className="zoom-controls">
+          <button onClick={handleZoomIn}>Zoom In (+)</button>
+          <button onClick={handleZoomOut}>Zoom Out (-)</button>
+          <button onClick={handleResetZoom}>Reset Zoom</button>
+          <span className="zoom-info">{Math.round(scale * 100)}%</span>
+        </div>
       </div>
 
       <Stage
@@ -152,6 +211,12 @@ const Whiteboard: React.FC = () => {
         onMousemove={handleMouseMove}
         onMouseup={handleMouseUp}
         onMouseLeave={handleMouseUp}
+        onWheel={handleWheel}
+        scaleX={scale}
+        scaleY={scale}
+        x={position.x}
+        y={position.y}
+        draggable={tool === "pen" || tool === "eraser" ? false : true}
       >
         <Layer>
           {/* Draw all shapes first */}
