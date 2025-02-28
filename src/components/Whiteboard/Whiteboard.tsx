@@ -5,7 +5,7 @@ import { Stage, Layer, Line, Circle, Rect, Group } from "react-konva";
 import "./Whiteboard.css";
 import { KonvaEventObject } from "konva/lib/Node";
 
-type Tool = "pen" | "eraser" | "rectangle" | "circle";
+type Tool = "pen" | "eraser" | "rectangle" | "circle" | "hand";
 
 interface LineProps {
   tool: Tool;
@@ -52,6 +52,12 @@ const Whiteboard: React.FC = () => {
   const stageHeight = window.innerHeight - 300;
 
   const handleMouseDown = (e: KonvaEventObject<MouseEvent>) => {
+    if (tool === "hand") {
+      e.evt.preventDefault();
+      e.evt.stopPropagation();
+      return;
+    }
+
     isDrawing.current = true;
     const pos = e.target.getStage()?.getPointerPosition();
 
@@ -195,6 +201,13 @@ const Whiteboard: React.FC = () => {
         </button>
         <button onClick={handleClear}>Clear All</button>
 
+        <button
+          className={isActive(tool, "hand")}
+          onClick={() => setTool("hand")}
+        >
+          ✋
+        </button>
+
         <div className="zoom-controls">
           <button onClick={handleZoomIn}>Zoom In (+)</button>
           <button onClick={handleZoomOut}>Zoom Out (-)</button>
@@ -216,7 +229,7 @@ const Whiteboard: React.FC = () => {
         scaleY={scale}
         x={position.x}
         y={position.y}
-        draggable={tool === "pen" || tool === "eraser" ? false : true}
+        draggable={tool === "hand"}
       >
         <Layer>
           {/* Draw all shapes first */}
