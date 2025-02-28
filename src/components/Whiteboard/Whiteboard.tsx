@@ -1,7 +1,7 @@
 /** @format */
 
 import { useRef, useState } from "react";
-import { Stage, Layer, Line } from "react-konva";
+import { Stage, Layer, Line, Circle, Rect } from "react-konva";
 import "./Whiteboard.css";
 import { KonvaEventObject } from "konva/lib/Node";
 
@@ -12,12 +12,29 @@ interface LineProps {
   points: number[];
 }
 
+interface ShapeProps {
+  type: "rectangle" | "circle";
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 const Whiteboard: React.FC = () => {
   const [tool, setTool] = useState<Tool>("pen");
 
+  // Drawing state
   const isDrawing = useRef(false);
   const [lines, setLines] = useState<LineProps[]>([]);
   const [currentLine, setCurrentLine] = useState<LineProps | null>(null);
+
+  // Shape state
+  const [shapes, setShapes] = useState<ShapeProps[]>([]);
+  const [currentShape, setCurrentShape] = useState<ShapeProps | null>(null);
+  const [shapeStart, setShapeStart] = useState<{ x: number; y: number }>({
+    x: 0,
+    y: 0,
+  });
 
   // Stage dimensions
   const stageWidth = window.innerWidth - 300;
@@ -28,30 +45,54 @@ const Whiteboard: React.FC = () => {
   };
 
   const handleMouseDown = (e: KonvaEventObject<MouseEvent>) => {
-    if (tool !== "pen" && tool !== "eraser") return;
-
     isDrawing.current = true;
     const pos = e.target.getStage()?.getPointerPosition();
 
     if (!pos) return;
 
-    setCurrentLine({
-      tool,
-      points: [pos.x, pos.y],
-    });
+    if (tool === "pen" || tool === "eraser") {
+      // Start a new line
+      setCurrentLine({
+        tool,
+        points: [pos.x, pos.y],
+      });
+    } else if (tool === "rectangle" || tool === "circle") {
+      // Start a new shape
+      setShapeStart({ x: pos.x, y: pos.y });
+      setCurrentShape({
+        type: tool === "rectangle" ? "rectangle" : "circle",
+        x: pos.x,
+        y: pos.y,
+        width: 0,
+        height: 0,
+      });
+    }
   };
 
   const handleMouseMove = (e: KonvaEventObject<MouseEvent>) => {
-    if (!isDrawing.current || !currentLine) return;
+    if (!isDrawing.current) return;
 
     const pos = e.target.getStage()?.getPointerPosition();
-
     if (!pos) return;
 
-    setCurrentLine({
-      ...currentLine,
-      points: [...currentLine.points, pos.x, pos.y],
-    });
+    if (tool === "pen" || tool === "eraser") {
+      // Continue drawing the line
+      if (currentLine) {
+        setCurrentLine({
+          ...currentLine,
+          points: [...currentLine.points, pos.x, pos.y],
+        });
+      }
+    } else if (tool === "rectangle" || tool === "circle") {
+      // Update shape dimensions
+      if (currentShape) {
+        setCurrentShape({
+          ...currentShape,
+          width: pos.x - shapeStart.x,
+          height: pos.y - shapeStart.y,
+        });
+      }
+    }
   };
 
   const handleMouseUp = () => {
@@ -60,6 +101,11 @@ const Whiteboard: React.FC = () => {
     if (currentLine) {
       setLines([...lines, currentLine]);
       setCurrentLine(null);
+    }
+
+    if (currentShape) {
+      setShapes([...shapes, currentShape]);
+      setCurrentShape(null);
     }
   };
 
@@ -128,6 +174,64 @@ const Whiteboard: React.FC = () => {
               }
             />
           )}
+
+          {shapes.map((shape, i) => {
+            if (shape.type === "rectangle") {
+              return (
+                <Rect
+                  key={`shape-${i}`}
+                  x={shape.x}
+                  y={shape.y}
+                  width={shape.width}
+                  height={shape.height}
+                  stroke="black"
+                  strokeWidth={2}
+                  fillEnabled={false}
+                />
+              );
+            } else {
+              return (
+                <Circle
+                  key={`shape-${i}`}
+                  x={shape.x + shape.width / 2}
+                  y={shape.y + shape.height / 2}
+                  radius={
+                    Math.max(Math.abs(shape.width), Math.abs(shape.height)) / 2
+                  }
+                  stroke="black"
+                  strokeWidth={2}
+                  fillEnabled={false}
+                />
+              );
+            }
+          })}
+
+          {currentShape &&
+            (currentShape.type === "rectangle" ? (
+              <Rect
+                x={currentShape.x}
+                y={currentShape.y}
+                width={currentShape.width}
+                height={currentShape.height}
+                stroke="black"
+                strokeWidth={2}
+                fillEnabled={false}
+              />
+            ) : (
+              <Circle
+                x={currentShape.x + currentShape.width / 2}
+                y={currentShape.y + currentShape.height / 2}
+                radius={
+                  Math.max(
+                    Math.abs(currentShape.width),
+                    Math.abs(currentShape.height),
+                  ) / 2
+                }
+                stroke="black"
+                strokeWidth={2}
+                fillEnabled={false}
+              />
+            ))}
         </Layer>
       </Stage>
     </div>
