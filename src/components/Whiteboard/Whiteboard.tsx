@@ -1,11 +1,20 @@
 /** @format */
 
-import { useRef, useState } from "react";
-import { Stage, Layer, Line, Circle, Rect, Group } from "react-konva";
+import { useCallback, useRef, useState } from "react";
+import {
+  Stage,
+  Layer,
+  Line,
+  Circle,
+  Rect,
+  Group,
+  Image as KonvaImage,
+} from "react-konva";
 import "./Whiteboard.css";
 import { KonvaEventObject } from "konva/lib/Node";
+import Konva from "konva";
 
-type Tool = "pen" | "eraser" | "rectangle" | "circle" | "hand";
+type Tool = "pen" | "eraser" | "rectangle" | "circle" | "hand" | "image";
 
 interface LineProps {
   tool: Tool;
@@ -18,6 +27,15 @@ interface ShapeProps {
   y: number;
   width: number;
   height: number;
+}
+
+interface ImageProps {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  src: string;
+  imageElement: HTMLImageElement;
 }
 
 const isActive = (tool: Tool, selectedTool: Tool): string => {
@@ -46,6 +64,11 @@ const Whiteboard: React.FC = () => {
     x: 0,
     y: 0,
   });
+
+  // Image state
+  const [images, setImages] = useState<ImageProps[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const stageRef = useRef<Konva.Stage>(null);
 
   // Stage dimensions
   const stageWidth = window.innerWidth - 300;
@@ -172,8 +195,108 @@ const Whiteboard: React.FC = () => {
     setScale(newScale);
   };
 
+  const loadImage = (file: File) => {
+    const URL = window.URL || window.webkitURL;
+    const imageUrl = URL.createObjectURL(file);
+
+    const img = new Image();
+    img.src = imageUrl;
+
+    img.onload = () => {
+      // Calculate dimensions while preserving aspect ratio
+      const maxDimension = 300;
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height && width > maxDimension) {
+        height = (height / width) * maxDimension;
+        width = maxDimension;
+      } else if (height > maxDimension) {
+        width = (width / height) * maxDimension;
+        height = maxDimension;
+      }
+
+      // Position in the center of the viewport
+      const stage = stageRef.current;
+      let x = 0;
+      let y = 0;
+
+      if (stage) {
+        const stagePos = stage.position();
+        const viewportCenter = {
+          x: stageWidth / 2,
+          y: stageHeight / 2,
+        };
+
+        // Calculate position that centers the image in the visible viewport
+        x = (viewportCenter.x - width / 2 - stagePos.x) / scale;
+        y = (viewportCenter.y - height / 2 - stagePos.y) / scale;
+      } else {
+        // Fallback if stage ref is not available
+        x = stageWidth / 2 - width / 2;
+        y = stageHeight / 2 - height / 2;
+      }
+
+      // Add image to state
+      const newImage: ImageProps = {
+        x,
+        y,
+        width,
+        height,
+        src: imageUrl,
+        imageElement: img,
+      };
+
+      setImages((prevImages) => [...prevImages, newImage]);
+
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    };
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      loadImage(file);
+    }
+  };
+
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0];
+      const validTypes = ["image/jpeg", "image/png", "image/jpg"];
+
+      if (validTypes.includes(file.type)) {
+        loadImage(file);
+      }
+    }
+  }, []);
+
   return (
-    <div className="whiteboard-container">
+    <div
+      className="whiteboard-container"
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
+      <input
+        type="file"
+        ref={fileInputRef}
+        style={{ display: "none" }}
+        accept="image/png, image/jpeg, image/jpg"
+        onChange={handleImageUpload}
+      />
+
       <div className="toolbar">
         <button
           className={isActive(tool, "pen")}
@@ -208,6 +331,16 @@ const Whiteboard: React.FC = () => {
           ✋
         </button>
 
+        <button
+          className={isActive(tool, "image")}
+          onClick={() => {
+            setTool("image");
+            fileInputRef.current?.click();
+          }}
+        >
+          🖼️
+        </button>
+
         <div className="zoom-controls">
           <button onClick={handleZoomIn}>Zoom In (+)</button>
           <button onClick={handleZoomOut}>Zoom Out (-)</button>
@@ -230,8 +363,22 @@ const Whiteboard: React.FC = () => {
         x={position.x}
         y={position.y}
         draggable={tool === "hand"}
+        ref={stageRef}
       >
         <Layer>
+          {/* ADDED: Render images */}
+          {images.map((img, i) => (
+            <KonvaImage
+              key={`image-${i}`}
+              x={img.x}
+              y={img.y}
+              width={img.width}
+              height={img.height}
+              image={img.imageElement}
+              draggable
+            />
+          ))}
+
           {/* Draw all shapes first */}
           <Group>
             {shapes.map((shape, i) => {
