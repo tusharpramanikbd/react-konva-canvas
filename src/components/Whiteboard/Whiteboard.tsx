@@ -103,21 +103,29 @@ const Whiteboard: React.FC = () => {
             <Line
               key={i}
               points={line.points}
-              stroke="black"
-              strokeWidth={5}
+              stroke={line.tool === "eraser" ? "white" : "black"}
+              strokeWidth={line.tool === "eraser" ? 20 : 5}
               tension={0.5}
               lineCap="round"
               lineJoin="round"
+              globalCompositeOperation={
+                line.tool === "eraser" ? "destination-out" : "source-over"
+              }
             />
           ))}
           {currentLine && (
             <Line
               points={currentLine.points}
-              stroke="black"
-              strokeWidth={5}
+              stroke={currentLine.tool === "eraser" ? "white" : "black"}
+              strokeWidth={currentLine.tool === "eraser" ? 20 : 5}
               tension={0.5}
               lineCap="round"
               lineJoin="round"
+              globalCompositeOperation={
+                currentLine.tool === "eraser"
+                  ? "destination-out"
+                  : "source-over"
+              }
             />
           )}
         </Layer>
